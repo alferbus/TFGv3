@@ -4,21 +4,22 @@ from PyQt4 import QtCore, QtGui
 from UI import login
 from gps3 import agps3
 
-#TODO: Wrapper class for user_list, car_list, pid_list. 
-
 class LoginDialog(QtGui.QDialog):
 	def __init__(self,obd_path,user_data, parent=None):
 		QtGui.QWidget.__init__(self, parent)
 		""" This brings up the user loginion dialog"""
-		#------------------------ UI SETUP -----------------------------
+		
+		"""UI SETUP"""
 		self.ui = login.Ui_Dialog() #this brings up the GUI built with QtDesigner
 		self.ui.setupUi(self) #calls UI setup function
 		self.setWindowFlags(QtCore.Qt.FramelessWindowHint) #removes the window frame
 		self.setAttribute(QtCore.Qt.WA_DeleteOnClose,True) #deletes dialog object from memory on close
-		#------------------------ DATA READ  ---------------------------
+		
+		#USER DATA
 		self.data = user_data 
 		self.obd_path = obd_path
-		#---------------------- COMBO BOX SETUP  -----------------------
+		
+		#COMBO BOX SETUP
 		#Reads the previously parsed user data and displays it nicely on
 		#combo-boxes so that the user can easily choose both a username
 		#and a car.
@@ -27,13 +28,15 @@ class LoginDialog(QtGui.QDialog):
 		for one_car in self.data.car_list: #show added cars
 			self.ui.comboBoxVehicle.addItem(
 			one_car['maker']+' '+one_car['model'])
-		#---------------------- SIGNAL - SLOTS -------------------------
+		
+		"""SIGNAL-SLOTS"""
 		self.connect(
 			self.ui.pushButtonOK, QtCore.SIGNAL('pressed()'),
 			self.OK)
 		self.connect(
 			self.ui.pushButtonOK, QtCore.SIGNAL('released()'),
 			self.check_obd)
+
 	#--------------------------- SLOTS DEFINITION ----------------------	
 	def OK(self):
 		self.ui.pushButtonOK.setFlat(True)
@@ -74,5 +77,5 @@ class LoginDialog(QtGui.QDialog):
 		car_index  = self.ui.comboBoxVehicle.currentIndex()
 		
 		mainm = MainMenuDialog(self.obd_path,self.data,user_index, car_index)
-		self.close()
+		self.close() #also deletes LoginDialog object safely
 		mainm.exec_()

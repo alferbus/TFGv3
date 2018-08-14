@@ -19,16 +19,19 @@ class UserData(object):
 class WelcomeDialog(QtGui.QDialog):
 	def __init__(self,obd_path,parent=None): #Parent-child class filiation is solved automatically
 		QtGui.QWidget.__init__(self, parent)
+		
+		"""UI SETUP"""
 		""" This brings up the login dialog interface"""
-		#------------------------ UI SETUP -----------------------------
 		self.ui = welcome.Ui_Dialog() #this brings up the GUI built with QtDesigner
 		self.ui.setupUi(self) #calls UI setup function
 		self.setWindowFlags(QtCore.Qt.FramelessWindowHint) #removes the window frame
 		self.setAttribute(QtCore.Qt.WA_DeleteOnClose,True) #deletes dialog object from memory on close
-		#------------------------ DATA READ  ---------------------------
+		
+		#USER DATA
 		self.data = UserData() #provides wrapper for easy data access
 		self.obd_path = obd_path
-		#---------------------- SIGNAL - SLOTS -------------------------
+		
+		"""SIGNAL-SLOTS"""
 		"""Each QDialog child class features a connect method inherited
 		from its parent class. It is used as a high level interface for 
 		event handling. Each time the user interacts with the app 
@@ -45,6 +48,7 @@ class WelcomeDialog(QtGui.QDialog):
 		self.connect(
 			self.ui.pushButtonQuit, QtCore.SIGNAL("clicked()"), 
 			self.quitapp)				#user-made slot
+
 	#--------------------------- SLOTS DEFINITION ----------------------
 	def change_button(self):
 		#Sets the button flat to tell the user to wait for GPS

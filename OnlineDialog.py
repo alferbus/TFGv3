@@ -9,9 +9,9 @@ class OnlineDialog(QtGui.QDialog):
 	def __init__(self,user_data,cindex,parent=None):
 		QtGui.QWidget.__init__(self, parent)
 		
-		self.data = user_data
-		self.cindex = cindex
-		self.car_type = self.data.car_list[self.cindex]['fuel']
+		self.data 		= user_data
+		self.cindex 	= cindex
+		self.car_type 	= self.data.car_list[self.cindex]['fuel']
 		#------------------------ UI SETUP -----------------------------
 		self.ui = online.Ui_Dialog() # this brings up the GUI built with QtDesigner
 		self.ui.setupUi(self)

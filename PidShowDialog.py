@@ -4,42 +4,47 @@ from gps3.agps3threaded import AGPS3mechanism
 from PyQt4 import QtCore, QtGui
 from UI import PIDshow
 from data import DataManagement
-from OnlineDialog import OnlineDialog
-#TODO: Wrapper class for user_list, car_list, pid_list. 
+from OnlineDialog import OnlineDialog 
 
 class PidShowDialog(QtGui.QDialog):
 	def __init__(self,obd_path,user_data,user_index,car_index,current_pid_name,parent=None):
 		QtGui.QWidget.__init__(self, parent)
 		
-		#------------------------ UI SETUP -----------------------------
-		self.ui = PIDshow.Ui_Dialog() # this brings up the GUI built with QtDesigner
-		self.ui.setupUi(self)
-		self.setWindowFlags(
-			QtCore.Qt.FramelessWindowHint) # remove the window frame
-			# ~ | QtCore.Qt.WindowStaysOnTopHint) # keep the focus
-		self.setAttribute(QtCore.Qt.WA_DeleteOnClose,True) # delete dialog on close
-		#-------------------------- USER DATA --------------------------
+		"""UI SETUP"""
+		self.ui = PIDshow.Ui_Dialog() #this brings up the GUI built with QtDesigner
+		self.ui.setupUi(self)         #calls UI setup function
+		self.setWindowFlags(QtCore.Qt.FramelessWindowHint) #remove the window frame
+		self.setAttribute(QtCore.Qt.WA_DeleteOnClose,True) #delete dialog on close
+		
+		#USER DATA
 		self.uindex = 	user_index
 		self.cindex = 	car_index		
 		self.data = 	user_data
 		
+		#OBD PATH
 		self.obd_path = obd_path
-		#---------------------------------------------------------------
+		
+		"""SHOW UI"""
+		# go back button
 		self.connect(
 			self.ui.pushButtonBack, QtCore.SIGNAL('clicked()'),self.back)
+		# online button
 		self.connect(
 			self.ui.pushButtonStart, QtCore.SIGNAL('clicked()'),self.online_pressed)
-		#-------------------- THREAD MANAGEMENT ------------------------
-			
-		self.workerThread = WorkerThread(self.obd_path,user_data,user_index,
-		car_index,current_pid_name)
 		
+		#THREAD MANAGEMENT
+		self.workerThread = WorkerThread(self.obd_path,user_data,user_index,
+		car_index,current_pid_name) # thread to write each db query
 		self.connect(self.workerThread, QtCore.SIGNAL("valueUpdate(QString)"),
 			self.valueUpdate,QtCore.Qt.DirectConnection)
-		
+			# a custom signal is picked up with an argument and slot
+			# 'valueUpdate' is executed
 		self.ui.labelPid.setText(current_pid_name)
+		# sets up the pid name label to be shown
+		# as soon as the PID Show Dialog opens up
 		self.workerThread.start()
-		
+	
+	#--------------------------- SLOTS DEFINITION ----------------------	
 	def valueUpdate(self,value):
 		#update label with new data
 		#grab self.selected_pid_name and value as arguments passed.
@@ -48,40 +53,46 @@ class PidShowDialog(QtGui.QDialog):
 	def back(self):
 		self.ui.pushButtonBack.setFlat(True)
 		self.ui.pushButtonBack.setText(u"Saliendo...")
-		self.workerThread.stop_polling()
-		self.workerThread.close_online()
-		self.workerThread.terminate()
+		self.workerThread.stop_polling() # stops the polling/writing db cycle
+		self.workerThread.close_online() # stops online thread and closes online dialog
+		self.workerThread.terminate() # terminates worker thread
 		
+		#NOTE: class imported here to prevent scope name problems
 		from PidSelectDialog import PidSelectDialog
 		pid_select = PidSelectDialog(self.obd_path,self.data,self.uindex,self.cindex)
 		self.close()
 		pid_select.exec_()
 	
 	def online_pressed(self):
-		self.workerThread.display_online()
-		
+		self.workerThread.display_online() # executes run() method from thread
+
+#------------------------------ WORKER THREAD ---------------------------------	
 class WorkerThread(QtCore.QThread):
 	def __init__(self,obd_path,user_data,user_index,car_index,current_pid_name,
 	parent=None):
 		super(WorkerThread,self).__init__(parent)
 		
+		#USER DATA
 		self.uindex = 	user_index
 		self.cindex = 	car_index
-		self.obd_path = obd_path
-				
 		self.data = 	user_data
-		self.username = self.data.user_list[self.uindex]['name']
-		self.car =		self.data.car_list[self.cindex]['maker']
+		self.username = self.data.user_list[self.uindex]['name'] #current username
+		self.car =		self.data.car_list[self.cindex]['maker'] #current car
+		self.selected_pid_name = current_pid_name                #current pid
+		
+		#OBD PATH
+		self.obd_path = obd_path
+
+		#SESSION LOG
 		self.database = DataManagement(self.username,self.car,self.uindex,self.cindex,self.data)
-				
-		self.selected_pid_name = current_pid_name
 		self.l = [] #set empty writelist buffer (items to be written on DB)
 		self.sample_number = 1 #sample number
 		
-		self.start_gps()
-		self.connection = obd.OBD(self.obd_path)
-		self.poll = True
-		self.online = OnlineDialog(self.data,self.cindex)
+		#THREAD SETUP
+		self.start_gps() # sets up gps polling
+		self.connection = obd.OBD(self.obd_path) # sets up obd connection with car
+		self.poll = True # activates polling label
+		self.online = OnlineDialog(self.data,self.cindex) # sets up Online Dialog
 		self.online_commands = ['RPM','THROTTLE_POS','SPEED']
 		self.online_results = []
 		
@@ -143,47 +154,51 @@ class WorkerThread(QtCore.QThread):
 								#then car is queried for new obd data
 	def update_label(self):
 		#------------------------ SHOW SELECTED PID --------------------
+		"""This code queries and shows the selected PID"""
 		c = obd.commands[self.selected_pid_name]
 		r = self.connection.query(c)
 		try:
-			self.value = str(r.value.magnitude)
-		except AttributeError as e:
-			self.value = str(r.value)
-		#~ self.ui.labelValue.setText(value)
+			self.value = str(r.value.magnitude) # try to get magnitude
+		except AttributeError as e:             # if it's not a magnitude
+			self.value = str(r.value)			# then it's a value. Get it.
 		#------------------------ CHECK THE OTHER PIDS -----------------
 		pid_list = self.data.pid_list[self.cindex]
 		#------------------------ ONLINE PIDS --------------------------
-		for o in self.online_commands:
+		"""This code queries and shows the onine PIDs to be shown on the 
+		Online Dialog window"""
+		for o in self.online_commands: #['RPM','THROTTLE_POS','SPEED']
 			c = obd.commands[o]
 			r = self.connection.query(c)
 			try:
-				self.online_results.append(r.value.magnitude)
-			except AttributeError as ae:
-				self.online_results.append(str(r.value))
+				self.online_results.append(r.value.magnitude) # try to get magnitude
+			except AttributeError as ae:                      # if it's not a magnitude
+				self.online_results.append(str(r.value))      # then it's a value. Get it.
 		#---------------------------------------------------------------
-		self.online_results[0] = int(self.online_results[0])
-		self.online_results[1] = float(self.online_results[1])
-		self.online_results[2] = float(self.online_results[2])
+		self.online_results[0] = int(self.online_results[0])  #RPM
+		self.online_results[1] = float(self.online_results[1])#THROTTLE_POS
+		self.online_results[2] = float(self.online_results[2])#SPEED
 		
 		self.online.set_online(self.online_results)
 		self.online_results = []
 		#---------------------- USER-SELECTED PIDS ---------------------
+		"""This code queries and shows the onine PIDs to be shown on the 
+		Online Dialog window"""
 		for a_pid in pid_list:
 			pid_name = self.data.pid_list[self.cindex][a_pid]
 			c = obd.commands[pid_name]
 			r = self.connection.query(c)
+			"""Store in l obtained values from user PIDs. When done, write them in db"""
 			try:
-				self.l.append(r.value.magnitude)
-			except AttributeError as ae:
-				self.l.append(str(r.value))
-		#~ print self.l
+				self.l.append(r.value.magnitude)   # try to get magnitude
+			except AttributeError as ae:           # if it's not a magnitude
+				self.l.append(str(r.value))        # then it's a value. Get it.
 		self.database.write(self.l)
 		#-------------------------------------
 		self.l = [] #purge writelist buffer	def start_gps(self):
 
 	def run(self):
 		while self.poll == True:
-			self.gps_check()
+			self.gps_check() #poll gps and write db with data
 			time.sleep(1)
 			self.value = QtCore.QString(self.value)
 			self.emit(QtCore.SIGNAL("valueUpdate(QString)"),self.value) #custom signal
