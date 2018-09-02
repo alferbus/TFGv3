@@ -17,23 +17,22 @@ class OnlineDialog(QtGui.QDialog):
 		self.ui.setupUi(self)
 		self.setWindowFlags(
 			QtCore.Qt.FramelessWindowHint) # remove the window frame
-			# ~ | QtCore.Qt.WindowStaysOnTopHint) # keep the focus
-		#~ self.setAttribute(QtCore.Qt.WA_DeleteOnClose,True) # delete dialog on close
 		
 		#---------------------------------------------------------------
 		self.connect(
 			self.ui.pushButtonBack, QtCore.SIGNAL('clicked()'),
 			self.back)
 		
-		self.dialogThread =  DialogThread(self.car_type)
+		self.dialogThread =  DialogThread(self.car_type) #initiates dialog thread
 		self.connect(self.dialogThread, QtCore.SIGNAL("onlineUpdate(QStringList)"),
 			self.update_online,QtCore.Qt.DirectConnection)
+		#gets values from thread to be updated in self.update_online()
 	
 	def terminate_thread(self):
-		self.dialogThread.terminate()
+		self.dialogThread.terminate() #stops dialogThread
 		
 	def back(self):
-		self.hide()
+		self.hide() #hides online dialog window
 	
 	def set_online(self,values):
 		if self.dialogThread.thread_running == False:
@@ -41,14 +40,11 @@ class OnlineDialog(QtGui.QDialog):
 			self.dialogThread.set_values(values)
 			self.dialogThread.set_running(True)
 			self.dialogThread.start()
-		else:
+		else: #the thread is already running
 			self.online_results = values
 			self.dialogThread.set_values(values)
 	
-	def update_online(self,values):
-		#~ print "*************"
-		#~ print "DEV: {}, RPM: {} , THROTTLE: {}".format(values[0],values[1],values[2])
-		#~ print "*************"
+	def update_online(self,values): #updates the online dialog with correct values
 		self.ui.labelDevValue.setText(values[0])
 		self.ui.labelRPMValue.setText(values[1])
 		self.ui.labelAccValue.setText(values[2])
@@ -63,6 +59,7 @@ class DialogThread(QtCore.QThread):
 		self.previous_values = [0,0,0,0,0]
 		self.thread_running = False
 		
+		#counters: number of times target condition has been reached
 		self.rpm_w = 0
 		self.throttle_w = 0
 		self.start_w = 0
@@ -76,7 +73,7 @@ class DialogThread(QtCore.QThread):
 		self.start_count = 0
 		self.stop_time = 0
 		
-		
+		#stores previous values
 	def set_values(self,values):
 		self.previous_values = self.values
 		self.values = values
@@ -84,6 +81,7 @@ class DialogThread(QtCore.QThread):
 	def set_running(self,value):
 		self.thread_running = value
 		
+		#this method computes the conditions that trigger the warning counters.
 	def run(self): #[dev,rpm,throttle,start,stop]
 		while self.thread_running == True:
 			self.w_history = []
@@ -136,13 +134,3 @@ class DialogThread(QtCore.QThread):
 			print "******************"
 			time.sleep(1)
 			self.emit(QtCore.SIGNAL("onlineUpdate(QStringList)"),self.w_history) #custom signal
-			#despues de esto no se ejecuta nada
-#TODO: un hilo que actualice los valores de manera automatica siempre que
-#haya valores nuevos para mostrar.
-
-#~ if __name__ == "__main__":
-	#~ import sys
-	#~ app = QtGui.QApplication(sys.argv)
-	#~ online = OnlineDialog()
-	#~ online.exec_()
-	#~ sys.exit(app.exec_())
